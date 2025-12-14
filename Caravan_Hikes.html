@@ -7,22 +7,26 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
-        h1 { text-align: center; }
+        h1 { text-align: center; margin-bottom: 10px; }
         label { display: block; margin: 15px 0 5px; font-weight: bold; }
-        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-text-color); font-size: 16px; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-text-color); font-size: 16px; box-sizing: border-box; }
         textarea { height: 120px; resize: vertical; }
-        .note { font-size: 14px; color: var(--tg-theme-hint-color); margin: 20px 0; }
+        .note { font-size: 14px; color: var(--tg-theme-hint-color); margin: 20px 0; padding: 10px; background: var(--tg-theme-secondary-bg-color); border-radius: 8px; }
     </style>
 </head>
 <body>
     <h1>Добавить новый поход</h1>
+
     <div class="note">
-        <b>Важно:</b> Чтобы добавить фото — после нажатия кнопки "Отправить данные" прикрепите фото к сообщению (кнопка скрепки 📎 в чате).
+        <b>Как добавить фото:</b><br>
+        После нажатия кнопки «Отправить данные» форма останется открытой.<br>
+        В чате с ботом прикрепите фото к следующему сообщению (скрепка 📎 → до 10 фото).<br>
+        Бот опубликует альбом с текстом из формы.
     </div>
 
     <form id="hikeForm">
         <label>Название похода *</label>
-        <input type="text" id="title">
+        <input type="text" id="title" placeholder="Например: Зимняя прогулка на Нерскую">
 
         <label>Дата начала *</label>
         <input type="date" id="startDate">
@@ -31,7 +35,7 @@
         <input type="number" id="nDays" value="1" min="1">
 
         <label>Дистанция, км</label>
-        <input type="text" id="distance">
+        <input type="text" id="distance" placeholder="25">
 
         <label>Вид похода</label>
         <select id="kindId">
@@ -52,28 +56,28 @@
         </select>
 
         <label>Руководитель (ФИО) *</label>
-        <input type="text" id="headName">
+        <input type="text" id="headName" placeholder="Иванов Иван Иванович">
 
         <label>Telegram руководителя</label>
-        <input type="text" id="headTelegram" placeholder="@username">
+        <input type="text" id="headTelegram" placeholder="@username или t.me/username">
 
         <label>Телефон руководителя</label>
-        <input type="tel" id="headPhone">
+        <input type="tel" id="headPhone" placeholder="+7 (999) 123-45-67">
 
         <label>Описание похода *</label>
-        <textarea id="description"></textarea>
+        <textarea id="description" placeholder="Маршрут, что брать с собой, особенности..."></textarea>
 
         <label>Место и время встречи</label>
-        <textarea id="meetingPoint"></textarea>
+        <textarea id="meetingPoint" placeholder="8:30, Ярославский вокзал, у касс"></textarea>
 
-        <label>Транспорт</label>
-        <input type="text" id="transport">
+        <label>Транспорт (название)</label>
+        <input type="text" id="transport" placeholder="Электричка Москва — Фрязино">
 
-        <label>Ссылка на транспорт</label>
-        <input type="url" id="transportURL">
+        <label>Ссылка на расписание транспорта</label>
+        <input type="url" id="transportURL" placeholder="https://tutu.ru">
 
-        <label>Ссылка на трек</label>
-        <input type="url" id="trackURL">
+        <label>Ссылка на трек/карту</label>
+        <input type="url" id="trackURL" placeholder="https://www.gpsies.com/...">
     </form>
 
     <script>
@@ -81,65 +85,87 @@
         tg.ready();
         tg.expand();
 
-        tg.MainButton.text = "Отправить данные (потом прикрепите фото)";
+        // Кнопка всегда видна и активна
+        tg.MainButton.text = "Отправить данные";
+        tg.MainButton.color = "#2481cc";
         tg.MainButton.show();
         tg.MainButton.enable();
 
         tg.MainButton.onClick(() => {
-            const data = {
-                title: document.getElementById('title').value.trim(),
-                startDate: document.getElementById('startDate').value,
-                nDays: document.getElementById('nDays').value || "1",
-                distance: document.getElementById('distance').value.trim(),
-                kindId: document.getElementById('kindId').value,
-                tempId: document.getElementById('tempId').value,
-                headName: document.getElementById('headName').value.trim(),
-                headTelegram: document.getElementById('headTelegram').value.trim(),
-                headPhone: document.getElementById('headPhone').value.trim(),
-                description: document.getElementById('description').value.trim(),
-                meetingPoint: document.getElementById('meetingPoint').value.trim(),
-                transport: document.getElementById('transport').value.trim(),
-                transportURL: document.getElementById('transportURL').value.trim(),
-                trackURL: document.getElementById('trackURL').value.trim(),
-            };
+            tg.MainButton.disable();
+            tg.MainButton.text = "Отправка...";
 
-            if (!data.title || !data.startDate || !data.description || !data.headName) {
-                tg.showAlert("Заполните обязательные поля:\n• Название\n• Дата\n• Описание\n• Руководитель");
-                return;
+            try {
+                const data = {
+                    title: document.getElementById('title').value.trim(),
+                    startDate: document.getElementById('startDate').value,
+                    nDays: document.getElementById('nDays').value || "1",
+                    distance: document.getElementById('distance').value.trim(),
+                    kindId: document.getElementById('kindId').value,
+                    tempId: document.getElementById('tempId').value,
+                    headName: document.getElementById('headName').value.trim(),
+                    headTelegram: document.getElementById('headTelegram').value.trim(),
+                    headPhone: document.getElementById('headPhone').value.trim(),
+                    description: document.getElementById('description').value.trim(),
+                    meetingPoint: document.getElementById('meetingPoint').value.trim(),
+                    transport: document.getElementById('transport').value.trim(),
+                    transportURL: document.getElementById('transportURL').value.trim(),
+                    trackURL: document.getElementById('trackURL').value.trim(),
+                };
+
+                // Обязательные поля
+                if (!data.title || !data.startDate || !data.description || !data.headName) {
+                    tg.showAlert("Заполните обязательные поля:\n• Название похода\n• Дата начала\n• Описание\n• Руководитель");
+                    tg.MainButton.enable();
+                    tg.MainButton.text = "Отправить данные";
+                    return;
+                }
+
+                // Формируем текст поста
+                const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН", 9: "КАРАВАН-Винегрет"};
+                const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп", 9: "Средний комфортный темп"};
+
+                let text = `🚵‍♂️ <b>${data.title}</b>\n\n`;
+                text += `<b>Дата:</b> ${data.startDate}`;
+                if (data.nDays > 1) text += ` (${data.nDays} дня)\n`;
+                else text += `\n`;
+                if (data.distance) text += `<b>Дистанция:</b> ${data.distance} км\n`;
+                text += `<b>Вид:</b> ${kindTexts[data.kindId] || 'Другое'}\n`;
+                text += `<b>Темп:</b> ${tempTexts[data.tempId] || 'Средний'}\n`;
+                text += `<b>Руководитель:</b> ${data.headName}`;
+                if (data.headTelegram) {
+                    const tgLink = data.headTelegram.replace(/^@/, '');
+                    text += ` (<a href="https://t.me/${tgLink}">${data.headTelegram}</a>)`;
+                }
+                if (data.headPhone) text += `\n<b>Телефон:</b> ${data.headPhone}`;
+                text += `\n\n<b>Описание:</b>\n${data.description}`;
+                if (data.meetingPoint) text += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
+                if (data.transport) {
+                    text += `\n\n<b>Транспорт:</b> ${data.transport}`;
+                    if (data.transportURL) text += ` (<a href="${data.transportURL}">расписание</a>)`;
+                }
+                if (data.trackURL) text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">ссылка</a>`;
+
+                const payload = {
+                    action: "publish_hike",
+                    text: text
+                };
+
+                tg.sendData(JSON.stringify(payload));
+
+                // Форма НЕ закрывается
+                tg.MainButton.text = "Отправлено! ✅";
+                setTimeout(() => {
+                    tg.MainButton.text = "Отправить ещё один";
+                    tg.MainButton.enable();
+                }, 3000);
+
+            } catch (err) {
+                console.error(err);
+                tg.showAlert("Ошибка: " + err.message);
+                tg.MainButton.enable();
+                tg.MainButton.text = "Отправить данные";
             }
-
-            // Формируем текст (бот получит его и опубликует)
-            const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН", 9: "КАРАВАН-Винегрет"};
-            const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп", 9: "Средний комфортный темп"};
-
-            let text = `🚵‍♂️ <b>${data.title}</b>\n\n`;
-            text += `<b>Дата:</b> ${data.startDate}`;
-            if (data.nDays > 1) text += ` (${data.nDays} дня)\n`;
-            else text += `\n`;
-            if (data.distance) text += `<b>Дистанция:</b> ${data.distance} км\n`;
-            text += `<b>Вид:</b> ${kindTexts[data.kindId] || 'Другое'}\n`;
-            text += `<b>Темп:</b> ${tempTexts[data.tempId] || 'Средний'}\n`;
-            text += `<b>Руководитель:</b> ${data.headName}`;
-            if (data.headTelegram) {
-                const link = data.headTelegram.replace(/^@/, '');
-                text += ` (<a href="https://t.me/${link}">${data.headTelegram}</a>)`;
-            }
-            if (data.headPhone) text += `\n<b>Телефон:</b> ${data.headPhone}`;
-            text += `\n\n<b>Описание:</b>\n${data.description}`;
-            if (data.meetingPoint) text += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
-            if (data.transport) {
-                text += `\n\n<b>Транспорт:</b> ${data.transport}`;
-                if (data.transportURL) text += ` (<a href="${data.transportURL}">расписание</a>)`;
-            }
-            if (data.trackURL) text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">ссылка</a>`;
-
-            const payload = {
-                action: "publish_hike",
-                text: text
-            };
-
-            tg.sendData(JSON.stringify(payload));
-            tg.close();
         });
     </script>
 </body>
