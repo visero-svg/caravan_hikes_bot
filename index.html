@@ -13,21 +13,24 @@
         textarea { height: 120px; resize: vertical; }
         .note { font-size: 14px; color: var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); padding: 15px; border-radius: 8px; margin: 20px 0; }
         .success { color: #4CAF50; font-weight: bold; text-align: center; margin: 20px 0; display: none; }
+        #imagePreviewContainer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        #imagePreviewContainer img { max-width: 150px; max-height: 150px; border-radius: 8px; object-fit: cover; }
     </style>
 </head>
 <body>
     <h1>Добавить новый поход</h1>
 
     <div class="note">
-        <b>Фото:</b> После отправки формы прикрепите фото к следующему сообщению в чате (скрепка → до 10 фото).<br>
-        Бот опубликует альбом с текстом.
+        <b>Фото:</b><br>
+        • Загружайте по прямой ссылке (например, из GPSies, Яндекс.Диска, Google Photos).<br>
+        • Или прикрепите вручную в чате после отправки формы.
     </div>
 
-    <div class="success" id="successMessage">✅ Текст отправлен! Теперь прикрепите фото (если нужно) и отправьте любое сообщение.</div>
+    <div class="success" id="successMessage">✅ Текст отправлен! Можно добавить ещё фото по ссылке или в чате.</div>
 
     <form id="hikeForm">
         <label>Название похода *</label>
-        <input type="text" id="title" placeholder="Зимняя Нерская">
+        <input type="text" id="title">
 
         <label>Дата начала *</label>
         <input type="date" id="startDate">
@@ -36,7 +39,7 @@
         <input type="number" id="nDays" value="1" min="1">
 
         <label>Дистанция, км</label>
-        <input type="text" id="distance" placeholder="25">
+        <input type="text" id="distance">
 
         <label>Вид похода</label>
         <select id="kindId">
@@ -57,28 +60,37 @@
         </select>
 
         <label>Руководитель (ФИО) *</label>
-        <input type="text" id="headName" placeholder="Иванов Иван Иванович">
+        <input type="text" id="headName">
 
         <label>Telegram руководителя</label>
         <input type="text" id="headTelegram" placeholder="@username">
 
         <label>Телефон руководителя</label>
-        <input type="tel" id="headPhone" placeholder="+7 (999) 123-45-67">
+        <input type="tel" id="headPhone">
 
         <label>Описание похода *</label>
-        <textarea id="description" placeholder="Маршрут, что взять, особенности..."></textarea>
+        <textarea id="description"></textarea>
 
         <label>Место и время встречи</label>
-        <textarea id="meetingPoint" placeholder="8:30, Ярославский вокзал"></textarea>
+        <textarea id="meetingPoint"></textarea>
 
         <label>Транспорт (название)</label>
-        <input type="text" id="transport" placeholder="Электричка Москва — Фрязино">
+        <input type="text" id="transport">
 
         <label>Ссылка на расписание транспорта</label>
-        <input type="url" id="transportURL" placeholder="https://tutu.ru">
+        <input type="url" id="transportURL">
 
         <label>Ссылка на трек/карту</label>
-        <input type="url" id="trackURL" placeholder="https://www.gpsies.com/...">
+        <input type="url" id="trackURL">
+
+        <!-- Новое поле: загрузка фото по прямой ссылке -->
+        <label>Фото по прямой ссылке (одна на строку, до 10)</label>
+        <textarea id="imageUrls" placeholder="Вставьте прямые ссылки на изображения (по одной на строку)
+Пример:
+https://example.com/photo1.jpg
+https://example.com/photo2.jpg"></textarea>
+
+        <div id="imagePreviewContainer"></div>
     </form>
 
     <script>
@@ -91,7 +103,20 @@
         tg.MainButton.show();
         tg.MainButton.enable();
 
-        tg.MainButton.onClick(() => {
+        // Превью изображений по ссылкам
+        document.getElementById('imageUrls').addEventListener('input', () => {
+            const urls = document.getElementById('imageUrls').value.trim().split('\n').filter(url => url.trim());
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = '';
+            urls.slice(0, 10).forEach(url => {
+                const img = document.createElement('img');
+                img.src = url.trim();
+                img.onerror = () => { img.src = ''; img.alt = 'Ошибка загрузки'; };
+                container.appendChild(img);
+            });
+        });
+
+        tg.MainButton.onClick(async () => {
             tg.MainButton.disable();
             tg.MainButton.text = "Отправка...";
 
@@ -120,6 +145,7 @@
                     return;
                 }
 
+                // Формируем текст поста
                 const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН", 9: "КАРАВАН-Винегрет"};
                 const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп", 9: "Средний комфортный темп"};
 
@@ -138,8 +164,6 @@
                 if (data.headPhone) text += `\n<b>Телефон:</b> ${data.headPhone}`;
                 text += `\n\n<b>Описание:</b>\n${data.description}`;
                 if (data.meetingPoint) text += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
-
-                // Автоматическая обработка ссылок
                 if (data.transport) {
                     text += `\n\n<b>Транспорт:</b> ${data.transport}`;
                     if (data.transportURL) {
@@ -147,14 +171,40 @@
                         text += ` (<a href="${data.transportURL}">${transportLinkText}</a>)`;
                     }
                 }
-
                 if (data.trackURL) {
                     text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">трек</a>`;
                 }
 
+                // Загрузка изображений по ссылкам (до 10)
+                const urls = document.getElementById('imageUrls').value.trim().split('\n').filter(u => u.trim());
+                const media = [];
+                for (let i = 0; i < Math.min(urls.length, 10); i++) {
+                    const url = urls[i].trim();
+                    try {
+                        // Загружаем изображение как blob
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error("Не удалось загрузить");
+                        const blob = await response.blob();
+                        const base64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.readAsDataURL(blob);
+                        });
+                        media.push({
+                            type: "photo",
+                            media: `data:${blob.type};base64,${base64}`,
+                            caption: i === 0 ? text : undefined,
+                            parse_mode: "HTML"
+                        });
+                    } catch (err) {
+                        console.warn(`Не удалось загрузить изображение: ${url}`, err);
+                    }
+                }
+
                 const payload = {
                     action: "publish_hike",
-                    text: text
+                    text: text,
+                    media: media.length > 0 ? media : undefined
                 };
 
                 tg.sendData(JSON.stringify(payload));
