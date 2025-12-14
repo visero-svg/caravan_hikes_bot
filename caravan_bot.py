@@ -15,8 +15,8 @@ if not BOT_TOKEN:
 
 # Каналы для публикации
 CHANNELS = [
-    "@caravan_hobby",
-    "@your_second_channel",  # Замени на свой реальный канал
+    #"@caravan_hobby",
+    "@velotravelru",  # Замени на свой реальный канал
 ]
 
 bot = Bot(token=BOT_TOKEN)
