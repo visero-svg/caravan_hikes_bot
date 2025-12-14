@@ -16,7 +16,7 @@ if not BOT_TOKEN:
 # Каналы для публикации
 CHANNELS = [
     "@caravan_hobby",
-    "@your_second_channel",  # Замени на свой второй канал
+    "@your_second_channel",  # Замени на свой реальный канал
 ]
 
 bot = Bot(token=BOT_TOKEN)
@@ -51,33 +51,34 @@ async def handle_web_app(message: types.Message):
     else:
         await message.answer("Неизвестное действие.")
 
-# HTTP-сервер для Render
+# HTTP-сервер для Render (без эмодзи в bytes!)
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         pass  # Отключаем логи
 
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
+        self.send_header("Content-type", "text/plain; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"Caravan Hikes Bot alive! 🚴‍♂️")
+        # Используем обычную строку (не bytes) и encode() для Unicode
+        self.wfile.write("Caravan Hikes Bot is running! Bicyclist".encode('utf-8'))
 
 def run_http_server():
-    port = int(os.getenv("PORT", 10000))  # Render передаёт порт через $PORT
+    port = int(os.getenv("PORT", 10000))  # Render передаёт $PORT
     with socketserver.TCPServer(("0.0.0.0", port), QuietHandler) as httpd:
-        print(f"HTTP-сервер запущен на порту {port} — Render доволен ✓")
+        print(f"HTTP-сервер запущен на порту {port} — Render видит порт ✓")
         httpd.serve_forever()
 
 async def start_polling():
-    print("Запуск polling бота...")
+    print("Запуск Telegram polling...")
     await dp.start_polling(bot)
 
 async def main():
-    # Запускаем HTTP-сервер в отдельном потоке (он будет основным процессом для Render)
+    # Запуск HTTP-сервера в фоновом потоке
     http_thread = Thread(target=run_http_server, daemon=True)
     http_thread.start()
 
-    # Запускаем polling бота как асинхронную задачу
+    # Запуск бота
     await start_polling()
 
 if __name__ == "__main__":
