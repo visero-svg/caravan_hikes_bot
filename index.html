@@ -6,61 +6,21 @@
     <title>Добавить поход в Караван</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            margin: 0;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin: 15px 0 5px;
-            font-weight: bold;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            border: 1px solid var(--tg-theme-hint-color);
-            background: var(--tg-theme-secondary-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        textarea {
-            height: 120px;
-            resize: vertical;
-        }
-        .note {
-            font-size: 14px;
-            color: var(--tg-theme-hint-color);
-            background: var(--tg-theme-secondary-bg-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .success {
-            color: #4CAF50;
-            font-weight: bold;
-            text-align: center;
-            margin: 20px 0;
-            display: none;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+        h1 { text-align: center; margin-bottom: 20px; }
+        label { display: block; margin: 15px 0 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-text-color); font-size: 16px; box-sizing: border-box; }
+        textarea { height: 120px; resize: vertical; }
+        .note { font-size: 14px; color: var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .success { color: #4CAF50; font-weight: bold; text-align: center; margin: 20px 0; display: none; }
     </style>
 </head>
 <body>
     <h1>Добавить новый поход</h1>
 
     <div class="note">
-        <b>Как добавить фото:</b><br>
-        После отправки формы прикрепите фото к следующему сообщению в чате с ботом (скрепка 📎 → до 10 фото).<br>
-        Бот опубликует альбом вместе с текстом.
+        <b>Фото:</b> После отправки формы прикрепите фото к следующему сообщению в чате (скрепка → до 10 фото).<br>
+        Бот опубликует альбом с текстом.
     </div>
 
     <div class="success" id="successMessage">✅ Текст отправлен! Теперь прикрепите фото (если нужно) и отправьте любое сообщение.</div>
@@ -111,13 +71,13 @@
         <label>Место и время встречи</label>
         <textarea id="meetingPoint" placeholder="8:30, Ярославский вокзал"></textarea>
 
-        <label>Транспорт</label>
+        <label>Транспорт (название)</label>
         <input type="text" id="transport" placeholder="Электричка Москва — Фрязино">
 
-        <label>Ссылка на транспорт</label>
+        <label>Ссылка на расписание транспорта</label>
         <input type="url" id="transportURL" placeholder="https://tutu.ru">
 
-        <label>Ссылка на трек</label>
+        <label>Ссылка на трек/карту</label>
         <input type="url" id="trackURL" placeholder="https://www.gpsies.com/...">
     </form>
 
@@ -172,17 +132,25 @@
                 text += `<b>Темп:</b> ${tempTexts[data.tempId] || 'Средний'}\n`;
                 text += `<b>Руководитель:</b> ${data.headName}`;
                 if (data.headTelegram) {
-                    const link = data.headTelegram.replace(/^@/, '');
-                    text += ` (<a href="https://t.me/${link}">${data.headTelegram}</a>)`;
+                    const tgLink = data.headTelegram.replace(/^@/, '');
+                    text += ` (<a href="https://t.me/${tgLink}">${data.headTelegram}</a>)`;
                 }
                 if (data.headPhone) text += `\n<b>Телефон:</b> ${data.headPhone}`;
                 text += `\n\n<b>Описание:</b>\n${data.description}`;
                 if (data.meetingPoint) text += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
+
+                // Автоматическая обработка ссылок
                 if (data.transport) {
                     text += `\n\n<b>Транспорт:</b> ${data.transport}`;
-                    if (data.transportURL) text += ` (<a href="${data.transportURL}">расписание</a>)`;
+                    if (data.transportURL) {
+                        const transportLinkText = data.transport.trim() || "расписание";
+                        text += ` (<a href="${data.transportURL}">${transportLinkText}</a>)`;
+                    }
                 }
-                if (data.trackURL) text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">ссылка</a>`;
+
+                if (data.trackURL) {
+                    text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">трек</a>`;
+                }
 
                 const payload = {
                     action: "publish_hike",
@@ -191,7 +159,6 @@
 
                 tg.sendData(JSON.stringify(payload));
 
-                // Форма НЕ закрывается
                 document.getElementById('successMessage').style.display = 'block';
                 tg.MainButton.text = "Отправлено! Готово к новому";
                 tg.MainButton.enable();
