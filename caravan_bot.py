@@ -1,38 +1,39 @@
 import asyncio
 import json
-import os  # Для переменных окружения на Render
+import os
+import threading
+import http.server
+import socketserver
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InputMediaPhoto
 
-# Лучше брать токен из переменных окружения (безопасно для Render)
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # На Render добавь в Environment Variables
+# Токен бота — обязательно из переменных окружения (безопасно)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
-    raise ValueError("Укажите BOT_TOKEN в переменных окружения!")
+    raise ValueError("Укажите BOT_TOKEN в переменных окружения Render!")
 
-# Список каналов для публикации (добавь сколько нужно)
+# Список каналов для публикации
 CHANNELS = [
-    "@caravan_hobby",          # Первый канал
-    "@your_second_channel",    # Второй канал (замени на реальный)
-    # "-1001234567890",        # Приватный канал — числовой ID
+    "@caravan_hobby",          # Замени на свои каналы
+    "@your_second_channel",
+    # "-1001234567890",        # Приватные — через ID
 ]
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Правильный обработчик для Web App данных в aiogram 3.x
+# Обработчик данных из Web App (aiogram 3.x)
 @dp.message(lambda message: message.web_app_data is not None)
 async def handle_web_app(message: types.Message):
-    # Данные приходят в message.web_app_data.data (строка JSON)
     try:
         payload = json.loads(message.web_app_data.data)
     except json.JSONDecodeError:
-        await message.answer("Ошибка: неверные данные из формы.")
+        await message.answer("Ошибка обработки данных из формы.")
         return
-    
+
     if payload.get("action") == "publish_hike":
         if "media" in payload:
-            # Отправляем альбом фото в каждый канал
             for channel in CHANNELS:
                 media_group = []
                 for item in payload["media"]:
@@ -43,7 +44,6 @@ async def handle_web_app(message: types.Message):
                     ))
                 await bot.send_media_group(channel, media_group)
         else:
-            # Только текст
             text = payload.get("text", "Новый поход")
             for channel in CHANNELS:
                 await bot.send_message(
@@ -54,12 +54,35 @@ async def handle_web_app(message: types.Message):
                 )
         
         await message.answer("✅ Поход успешно опубликован во всех каналах!")
-
     else:
         await message.answer("Неизвестное действие.")
 
+# Простой HTTP-сервер, чтобы Render видел открытый порт
+def run_http_server():
+    port = int(os.getenv("PORT", 8000))  # Render передаёт порт через $PORT
+    handler = http.server.SimpleHTTPRequestHandler
+    
+    # Создаём сервер, который отвечает простым сообщением
+    class QuietHandler(handler):
+        def log_message(self, format, *args):
+            pass  # Отключаем логи в консоль, чтобы не засорять
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Caravan Hikes Bot is running! 🚴‍♂️")
+
+    with socketserver.TCPServer(("0.0.0.0", port), QuietHandler) as httpd:
+        print(f"HTTP-сервер запущен на порту {port} (для Render)")
+        httpd.serve_forever()
+
 async def main():
-    print("Бот запущен и работает...")
+    # Запускаем HTTP-сервер в отдельном потоке (не блокирует polling)
+    thread = threading.Thread(target=run_http_server, daemon=True)
+    thread.start()
+
+    print("Бот запущен и работает 24/7...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
