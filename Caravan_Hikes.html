@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавить поход в Караван</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); }
+        label { display: block; margin: 15px 0 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-text-color); }
+        textarea { height: 120px; }
+        button { width: 100%; padding: 15px; background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); border: none; border-radius: 8px; font-size: 18px; margin-top: 20px; }
+        #preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        #preview img { max-width: 150px; max-height: 150px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Добавить новый поход</h1>
+    <form id="hikeForm">
+        <label>Название похода *</label>
+        <input type="text" id="title" required>
+
+        <label>Дата начала (ГГГГ-ММ-ДД) *</label>
+        <input type="date" id="startDate" required>
+
+        <label>Число дней</label>
+        <input type="number" id="nDays" value="1" min="1">
+
+        <label>Дистанция, км</label>
+        <input type="text" id="distance">
+
+        <label>Вид похода</label>
+        <select id="kindId">
+            <option value="1">КАРАВАН-ПВД</option>
+            <option value="4">КАРАВАН-Марафон</option>
+            <option value="6">Караван-Прогульщик</option>
+            <option value="3">КАРАВАН-Экспедиция</option>
+            <option value="5">Спорт-КАРАВАН</option>
+            <!-- Можно добавить остальные варианты -->
+        </select>
+
+        <label>Темп</label>
+        <select id="tempId">
+            <option value="1">Средний темп</option>
+            <option value="3">Быстрый темп</option>
+            <option value="2">Медленный темп</option>
+            <!-- и т.д. -->
+        </select>
+
+        <!-- Изменено: ручной ввод -->
+        <label>Руководитель *</label>
+        <input type="text" id="headName" placeholder="ФИО руководителя" required>
+
+        <label>Ссылка на Telegram руководителя</label>
+        <input type="text" id="headTelegram" placeholder="@username или https://t.me/username">
+
+        <label>Телефон руководителя</label>
+        <input type="tel" id="headPhone" placeholder="+7 (___) ___-__-__">
+
+        <label>Описание похода *</label>
+        <textarea id="description" required placeholder="Подробное описание маршрута, что брать и т.д."></textarea>
+
+        <label>Место и время встречи</label>
+        <textarea id="meetingPoint" placeholder="Например: 8:30, Ярославский вокзал..."></textarea>
+
+        <label>Транспорт (название)</label>
+        <input type="text" id="transport">
+
+        <label>Ссылка на транспорт</label>
+        <input type="url" id="transportURL">
+
+        <label>Трек (URL)</label>
+        <input type="url" id="trackURL">
+
+        <label>Фото похода (до 10 штук)</label>
+        <input type="file" id="photos" accept="image/*" multiple>
+        <div id="preview"></div>
+    </form>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        tg.MainButton.text = "Отправить в канал";
+        tg.MainButton.show();
+        tg.MainButton.enable();
+
+        // Предпросмотр фото
+        document.getElementById('photos').addEventListener('change', (e) => {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+            for (let file of e.target.files) {
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    preview.appendChild(img);
+                }
+            }
+        });
+
+        tg.MainButton.onClick(async () => {
+            const files = document.getElementById('photos').files;
+            if (files.length > 10) {
+                tg.showAlert("Максимум 10 фото!");
+                return;
+            }
+
+            const data = {
+                title: document.getElementById('title').value.trim(),
+                startDate: document.getElementById('startDate').value,
+                nDays: document.getElementById('nDays').value,
+                distance: document.getElementById('distance').value,
+                kindId: document.getElementById('kindId').value,
+                tempId: document.getElementById('tempId').value,
+                headName: document.getElementById('headName').value.trim(),
+                headTelegram: document.getElementById('headTelegram').value.trim(),
+                headPhone: document.getElementById('headPhone').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                meetingPoint: document.getElementById('meetingPoint').value.trim(),
+                transport: document.getElementById('transport').value.trim(),
+                transportURL: document.getElementById('transportURL').value.trim(),
+                trackURL: document.getElementById('trackURL').value.trim(),
+                user: tg.initDataUnsafe.user
+            };
+
+            if (!data.title || !data.startDate || !data.description || !data.headName) {
+                tg.showAlert("Заполните обязательные поля: название, дата, описание и руководитель!");
+                return;
+            }
+
+            const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН"};
+            const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп"};
+
+            let caption = `<b>${data.title}</b>\n\n`;
+            caption += `<b>Дата:</b> ${data.startDate}`;
+            if (data.nDays > 1) caption += ` (${data.nDays} дня)\n`;
+            else caption += `\n`;
+            if (data.distance) caption += `<b>Дистанция:</b> ${data.distance} км\n`;
+            caption += `<b>Вид:</b> ${kindTexts[data.kindId] || data.kindId}\n`;
+            caption += `<b>Темп:</b> ${tempTexts[data.tempId] || data.tempId}\n`;
+            caption += `<b>Руководитель:</b> ${data.headName}`;
+            if (data.headTelegram) caption += ` (<a href="https://t.me/${data.headTelegram.replace(/^@/, '')}">${data.headTelegram}</a>)`;
+            if (data.headPhone) caption += `\n<b>Телефон:</b> ${data.headPhone}`;
+            caption += `\n\n<b>Описание:</b>\n${data.description}`;
+            if (data.meetingPoint) caption += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
+            if (data.transport) caption += `\n\n<b>Транспорт:</b> ${data.transport}`;
+            if (data.transportURL) caption += ` (<a href="${data.transportURL}">расписание</a>)`;
+            if (data.trackURL) caption += `\n\n<b>Трек:</b> <a href="${data.trackURL}">ссылка</a>`;
+            caption += `\n\nДобавил: @${data.user?.username || data.user?.first_name || 'аноним'}`;
+
+            // Подготовка media
+            const media = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(file);
+                });
+                media.push({
+                    type: "photo",
+                    media: `data:${file.type};base64,${base64}`,
+                    caption: i === 0 ? caption : undefined,
+                    parse_mode: "HTML"
+                });
+            }
+
+            if (media.length === 0) {
+                tg.sendData(JSON.stringify({action: "publish_hike", text: caption}));
+            } else {
+                tg.sendData(JSON.stringify({action: "publish_hike", media: media}));
+            }
+
+            tg.close();
+        });
+    </script>
+</body>
+</html>
