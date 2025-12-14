@@ -16,7 +16,7 @@
     </style>
 </head>
 <body>
-    <h1>Добавить новый поход</h1>
+    <h1>Добавить новый поход в календарь КАРАВАН</h1>
     <form id="hikeForm">
         <label>Название похода *</label>
         <input type="text" id="title" required>
@@ -37,7 +37,7 @@
             <option value="6">Караван-Прогульщик</option>
             <option value="3">КАРАВАН-Экспедиция</option>
             <option value="5">Спорт-КАРАВАН</option>
-            <!-- Можно добавить остальные варианты -->
+            <option value="9">КАРАВАН-Винегрет</option>
         </select>
 
         <label>Темп</label>
@@ -45,35 +45,34 @@
             <option value="1">Средний темп</option>
             <option value="3">Быстрый темп</option>
             <option value="2">Медленный темп</option>
-            <!-- и т.д. -->
+            <option value="9">Средний "комфортный" темп</option>
         </select>
 
-        <!-- Изменено: ручной ввод -->
-        <label>Руководитель *</label>
-        <input type="text" id="headName" placeholder="ФИО руководителя" required>
+        <label>Руководитель (ФИО) *</label>
+        <input type="text" id="headName" placeholder="Иванов Иван Иванович" required>
 
-        <label>Ссылка на Telegram руководителя</label>
-        <input type="text" id="headTelegram" placeholder="@username или https://t.me/username">
+        <label>Telegram руководителя</label>
+        <input type="text" id="headTelegram" placeholder="@username или t.me/username">
 
         <label>Телефон руководителя</label>
-        <input type="tel" id="headPhone" placeholder="+7 (___) ___-__-__">
+        <input type="tel" id="headPhone" placeholder="+7 (999) 123-45-67">
 
         <label>Описание похода *</label>
-        <textarea id="description" required placeholder="Подробное описание маршрута, что брать и т.д."></textarea>
+        <textarea id="description" required placeholder="Маршрут, что брать с собой, особенности..."></textarea>
 
         <label>Место и время встречи</label>
-        <textarea id="meetingPoint" placeholder="Например: 8:30, Ярославский вокзал..."></textarea>
+        <textarea id="meetingPoint" placeholder="Например: 8:30 у входа на Ярославский вокзал"></textarea>
 
         <label>Транспорт (название)</label>
-        <input type="text" id="transport">
+        <input type="text" id="transport" placeholder="Электричка Москва — Фрязино">
 
-        <label>Ссылка на транспорт</label>
-        <input type="url" id="transportURL">
+        <label>Ссылка на расписание транспорта</label>
+        <input type="url" id="transportURL" placeholder="https://tutu.ru">
 
-        <label>Трек (URL)</label>
-        <input type="url" id="trackURL">
+        <label>Ссылка на трек/карту</label>
+        <input type="url" id="trackURL" placeholder="https://www.gpsies.com/...">
 
-        <label>Фото похода (до 10 штук)</label>
+        <label>Фото (до 10 штук, опционально)</label>
         <input type="file" id="photos" accept="image/*" multiple>
         <div id="preview"></div>
     </form>
@@ -83,7 +82,7 @@
         tg.ready();
         tg.expand();
 
-        tg.MainButton.text = "Отправить в канал";
+        tg.MainButton.text = "Опубликовать в канале";
         tg.MainButton.show();
         tg.MainButton.enable();
 
@@ -103,7 +102,7 @@
         tg.MainButton.onClick(async () => {
             const files = document.getElementById('photos').files;
             if (files.length > 10) {
-                tg.showAlert("Максимум 10 фото!");
+                tg.showAlert("Максимум 10 фотографий!");
                 return;
             }
 
@@ -111,7 +110,7 @@
                 title: document.getElementById('title').value.trim(),
                 startDate: document.getElementById('startDate').value,
                 nDays: document.getElementById('nDays').value,
-                distance: document.getElementById('distance').value,
+                distance: document.getElementById('distance').value.trim(),
                 kindId: document.getElementById('kindId').value,
                 tempId: document.getElementById('tempId').value,
                 headName: document.getElementById('headName').value.trim(),
@@ -130,27 +129,43 @@
                 return;
             }
 
-            const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН"};
-            const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп"};
+            const kindTexts = {
+                1: "КАРАВАН-ПВД",
+                4: "КАРАВАН-Марафон",
+                6: "Караван-Прогульщик",
+                3: "КАРАВАН-Экспедиция",
+                5: "Спорт-КАРАВАН",
+                9: "КАРАВАН-Винегрет"
+            };
+            const tempTexts = {
+                1: "Средний темп",
+                3: "Быстрый темп",
+                2: "Медленный темп",
+                9: "Средний комфортный темп"
+            };
 
-            let caption = `<b>${data.title}</b>\n\n`;
+            let caption = `🚵‍♂️ <b>${data.title}</b>\n\n`;
             caption += `<b>Дата:</b> ${data.startDate}`;
             if (data.nDays > 1) caption += ` (${data.nDays} дня)\n`;
             else caption += `\n`;
             if (data.distance) caption += `<b>Дистанция:</b> ${data.distance} км\n`;
-            caption += `<b>Вид:</b> ${kindTexts[data.kindId] || data.kindId}\n`;
-            caption += `<b>Темп:</b> ${tempTexts[data.tempId] || data.tempId}\n`;
+            caption += `<b>Вид:</b> ${kindTexts[data.kindId] || 'Другое'}\n`;
+            caption += `<b>Темп:</b> ${tempTexts[data.tempId] || 'Средний'}\n`;
             caption += `<b>Руководитель:</b> ${data.headName}`;
-            if (data.headTelegram) caption += ` (<a href="https://t.me/${data.headTelegram.replace(/^@/, '')}">${data.headTelegram}</a>)`;
+            if (data.headTelegram) {
+                const tgLink = data.headTelegram.replace(/^@/, '');
+                caption += ` (<a href="https://t.me/${tgLink}">${data.headTelegram}</a>)`;
+            }
             if (data.headPhone) caption += `\n<b>Телефон:</b> ${data.headPhone}`;
             caption += `\n\n<b>Описание:</b>\n${data.description}`;
             if (data.meetingPoint) caption += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
-            if (data.transport) caption += `\n\n<b>Транспорт:</b> ${data.transport}`;
-            if (data.transportURL) caption += ` (<a href="${data.transportURL}">расписание</a>)`;
-            if (data.trackURL) caption += `\n\n<b>Трек:</b> <a href="${data.trackURL}">ссылка</a>`;
+            if (data.transport) {
+                caption += `\n\n<b>Транспорт:</b> ${data.transport}`;
+                if (data.transportURL) caption += ` (<a href="${data.transportURL}">расписание</a>)`;
+            }
+            if (data.trackURL) caption += `\n\n<b>Трек/карта:</b> <a href="${data.trackURL}">ссылка</a>`;
             caption += `\n\nДобавил: @${data.user?.username || data.user?.first_name || 'аноним'}`;
 
-            // Подготовка media
             const media = [];
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
