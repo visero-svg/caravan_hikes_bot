@@ -13,20 +13,15 @@
         textarea { height: 120px; resize: vertical; }
         .note { font-size: 14px; color: var(--tg-theme-hint-color); background: var(--tg-theme-secondary-bg-color); padding: 15px; border-radius: 8px; margin: 20px 0; }
         .success { color: #4CAF50; font-weight: bold; text-align: center; margin: 20px 0; display: none; }
-        #imagePreviewContainer { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        #imagePreviewContainer img { max-width: 150px; max-height: 150px; border-radius: 8px; object-fit: cover; }
     </style>
 </head>
 <body>
     <h1>Добавить новый поход</h1>
-
     <div class="note">
         <b>Фото:</b><br>
-        • Загружайте по прямой ссылке (например, из GPSies, Яндекс.Диска, Google Photos).<br>
-        • Или прикрепите вручную в чате после отправки формы.
+        • Прикрепи фото (или альбом) прямо в чате после отправки формы.
     </div>
-
-    <div class="success" id="successMessage">✅ Текст отправлен! Можно добавить ещё фото по ссылке или в чате.</div>
+    <div class="success" id="successMessage">✅ Пост отправлен в бот!<br>Теперь ответь на это сообщение фото или текстом.</div>
 
     <form id="hikeForm">
         <label>Название похода *</label>
@@ -55,7 +50,7 @@
         <select id="tempId">
             <option value="1">Средний темп</option>
             <option value="3">Быстрый темп</option>
-            <option value="2">Медленный темп</option>
+            <option value="2">Медлый темп</option>
             <option value="9">Средний комфортный темп</option>
         </select>
 
@@ -82,39 +77,24 @@
 
         <label>Ссылка на трек/карту</label>
         <input type="url" id="trackURL">
-
-        <!-- Новое поле: загрузка фото по прямой ссылке -->
-        <label>Фото по прямой ссылке (одна на строку, до 10)</label>
-        <textarea id="imageUrls" placeholder="Вставьте прямые ссылки на изображения (по одной на строку)
-Пример:
-https://example.com/photo1.jpg
-https://example.com/photo2.jpg"></textarea>
-
-        <div id="imagePreviewContainer"></div>
     </form>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-
         tg.MainButton.text = "Отправить в канал";
         tg.MainButton.color = "#2481cc";
         tg.MainButton.show();
         tg.MainButton.enable();
 
-        // Превью изображений по ссылкам
-        document.getElementById('imageUrls').addEventListener('input', () => {
-            const urls = document.getElementById('imageUrls').value.trim().split('\n').filter(url => url.trim());
-            const container = document.getElementById('imagePreviewContainer');
-            container.innerHTML = '';
-            urls.slice(0, 10).forEach(url => {
-                const img = document.createElement('img');
-                img.src = url.trim();
-                img.onerror = () => { img.src = ''; img.alt = 'Ошибка загрузки'; };
-                container.appendChild(img);
-            });
-        });
+        function getDaysWord(days) {
+            days = parseInt(days);
+            if (isNaN(days)) return "дней";
+            if (days % 10 === 1 && days % 100 !== 11) return "день";
+            if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return "дня";
+            return "дней";
+        }
 
         tg.MainButton.onClick(async () => {
             tg.MainButton.disable();
@@ -124,7 +104,7 @@ https://example.com/photo2.jpg"></textarea>
                 const data = {
                     title: document.getElementById('title').value.trim(),
                     startDate: document.getElementById('startDate').value,
-                    nDays: document.getElementById('nDays').value || "1",
+                    nDays: parseInt(document.getElementById('nDays').value) || 1,
                     distance: document.getElementById('distance').value.trim(),
                     kindId: document.getElementById('kindId').value,
                     tempId: document.getElementById('tempId').value,
@@ -139,19 +119,22 @@ https://example.com/photo2.jpg"></textarea>
                 };
 
                 if (!data.title || !data.startDate || !data.description || !data.headName) {
-                    tg.showAlert("Заполните обязательные поля:\n• Название\n• Дата\n• Описание\n• Руководитель");
+                    tg.showAlert("Заполните обязательные поля:\n• Название\n• Дата начала\n• Описание\n• Руководитель");
                     tg.MainButton.enable();
                     tg.MainButton.text = "Отправить в канал";
                     return;
                 }
 
-                // Формируем текст поста
+                const formattedDate = data.startDate 
+                    ? new Date(data.startDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '';
+
                 const kindTexts = {1: "КАРАВАН-ПВД", 4: "КАРАВАН-Марафон", 6: "Караван-Прогульщик", 3: "КАРАВАН-Экспедиция", 5: "Спорт-КАРАВАН", 9: "КАРАВАН-Винегрет"};
                 const tempTexts = {1: "Средний темп", 3: "Быстрый темп", 2: "Медленный темп", 9: "Средний комфортный темп"};
 
                 let text = `🚵‍♂️ <b>${data.title}</b>\n\n`;
-                text += `<b>Дата:</b> ${data.startDate}`;
-                if (data.nDays > 1) text += ` (${data.nDays} дня)\n`;
+                text += `<b>Дата:</b> ${formattedDate}`;
+                if (data.nDays > 1) text += ` (${data.nDays} ${getDaysWord(data.nDays)})\n`;
                 else text += `\n`;
                 if (data.distance) text += `<b>Дистанция:</b> ${data.distance} км\n`;
                 text += `<b>Вид:</b> ${kindTexts[data.kindId] || 'Другое'}\n`;
@@ -166,52 +149,23 @@ https://example.com/photo2.jpg"></textarea>
                 if (data.meetingPoint) text += `\n\n<b>Встреча:</b>\n${data.meetingPoint}`;
                 if (data.transport) {
                     text += `\n\n<b>Транспорт:</b> ${data.transport}`;
-                    if (data.transportURL) {
-                        const transportLinkText = data.transport.trim() || "расписание";
-                        text += ` (<a href="${data.transportURL}">${transportLinkText}</a>)`;
-                    }
+                    if (data.transportURL) text += ` (<a href="${data.transportURL}">расписание</a>)`;
                 }
-                if (data.trackURL) {
-                    text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">трек</a>`;
-                }
-
-                // Загрузка изображений по ссылкам (до 10)
-                const urls = document.getElementById('imageUrls').value.trim().split('\n').filter(u => u.trim());
-                const media = [];
-                for (let i = 0; i < Math.min(urls.length, 10); i++) {
-                    const url = urls[i].trim();
-                    try {
-                        // Загружаем изображение как blob
-                        const response = await fetch(url);
-                        if (!response.ok) throw new Error("Не удалось загрузить");
-                        const blob = await response.blob();
-                        const base64 = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onload = () => resolve(reader.result.split(',')[1]);
-                            reader.readAsDataURL(blob);
-                        });
-                        media.push({
-                            type: "photo",
-                            media: `data:${blob.type};base64,${base64}`,
-                            caption: i === 0 ? text : undefined,
-                            parse_mode: "HTML"
-                        });
-                    } catch (err) {
-                        console.warn(`Не удалось загрузить изображение: ${url}`, err);
-                    }
-                }
+                if (data.trackURL) text += `\n\n<b>Трек:</b> <a href="${data.trackURL}">трек</a>`;
 
                 const payload = {
-                    action: "publish_hike",
                     text: text,
-                    media: media.length > 0 ? media : undefined
+                    startDate: data.startDate,
+                    nDays: data.nDays
                 };
 
                 tg.sendData(JSON.stringify(payload));
 
                 document.getElementById('successMessage').style.display = 'block';
-                tg.MainButton.text = "Отправлено! Готово к новому";
-                tg.MainButton.enable();
+                tg.MainButton.text = "✅ Отправлено!";
+                tg.MainButton.hide();
+
+                setTimeout(() => tg.close(), 800);
 
             } catch (err) {
                 console.error(err);
