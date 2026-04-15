@@ -50,18 +50,21 @@
         <select id="tempId">
             <option value="1">Средний темп</option>
             <option value="3">Быстрый темп</option>
-            <option value="2">Медлый темп</option>
+            <option value="2">Медленный темп</option>
             <option value="9">Средний комфортный темп</option>
         </select>
 
+        <!-- Единая база руководителей (только один руководитель) -->
         <label>Руководитель (ФИО) *</label>
-        <input type="text" id="headName">
+        <select id="headName" required>
+            <option value="">— Выберите руководителя —</option>
+        </select>
 
         <label>Telegram руководителя</label>
-        <input type="text" id="headTelegram" placeholder="@username">
+        <input type="text" id="headTelegram" readonly>
 
         <label>Телефон руководителя</label>
-        <input type="tel" id="headPhone">
+        <input type="tel" id="headPhone" readonly>
 
         <label>Описание похода *</label>
         <textarea id="description"></textarea>
@@ -83,6 +86,35 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
+
+        // ==================== ЕДИНАЯ БАЗА РУКОВОДИТЕЛЕЙ ====================
+        const leaders = [
+            { name: "Новиков Александр",     telegram: "@Aleks_Visero",     phone: "+79099685509" },
+            { name: "САМОСТОЯТЕЛЬНО",     telegram: "",                phone: "" }
+            // Добавляйте новых руководителей сюда ↑
+        ];
+
+        // Заполнение списка руководителей
+        function populateLeaders() {
+            const headSelect = document.getElementById('headName');
+
+            leaders.forEach(leader => {
+                const opt = new Option(leader.name, leader.name);
+                headSelect.add(opt);
+            });
+        }
+
+        // Автозаполнение Telegram и телефона при выборе руководителя
+        function setupAutoFill() {
+            document.getElementById('headName').addEventListener('change', function() {
+                const selected = this.value;
+                const leader = leaders.find(l => l.name === selected);
+                
+                document.getElementById('headTelegram').value = leader ? leader.telegram : "";
+                document.getElementById('headPhone').value = leader ? leader.phone : "";
+            });
+        }
+
         tg.MainButton.text = "Отправить в канал";
         tg.MainButton.color = "#2481cc";
         tg.MainButton.show();
@@ -95,6 +127,12 @@
             if ([2, 3, 4].includes(days % 10) && ![12, 13, 14].includes(days % 100)) return "дня";
             return "дней";
         }
+
+        // Инициализация
+        window.onload = function() {
+            populateLeaders();
+            setupAutoFill();
+        };
 
         tg.MainButton.onClick(async () => {
             tg.MainButton.disable();
